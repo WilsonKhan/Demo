@@ -1,0 +1,72 @@
+[*]
+[*] GTKWave Analyzer v3.3.118 (w)1999-2023 BSI
+[*] MTRX3700 Major Project: ultrasonic driver (sonar_range) against the sensor model (hcsr04_model)
+[*]
+[dumpfile] "waveform.fst"
+[savefile] "sonar.gtkw"
+[timestart] 0
+[size] 1600 924
+[pos] -1 -1
+*-23.000000 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] sonar_tb.
+[treeopen] sonar_tb.dut.
+[treeopen] sonar_tb.sensor.
+[sst_width] 273
+[signals_width] 300
+[sst_expanded] 1
+[sst_vpaned_height] 328
+@200
+-The two wires (what the sensor sees)
+@28
+[color] 2
+sonar_tb.trig
+@28
+[color] 2
+sonar_tb.echo
+@200
+-Your driver (sonar_range)
+@28
+sonar_tb.start
+@28
+sonar_tb.rst
+@100000028
+sonar_tb.dut.state[2:0]
+@28
+sonar_tb.dut.echo_sync
+@22
+sonar_tb.dut.distance[11:0]
+@28
+[color] 4
+sonar_tb.dut.ready
+@28
+[color] 3
+sonar_tb.dut.valid
+@200
+-The sensor model
+@28
+sonar_tb.sensor.busy
+@22
+sonar_tb.sensor.distance_mm[31:0]
+@28
+sonar_tb.sensor.object_present
+@22
+sonar_tb.sensor.measurements[31:0]
+@22
+[color] 1
+sonar_tb.sensor.errors[31:0]
+@22
+sonar_tb.sensor.last_echo_us[31:0]
+@200
+-A bad driver on a second sensor
+@28
+[color] 1
+sonar_tb.bad_trig
+@28
+sonar_tb.bad_echo
+@22
+[color] 1
+sonar_tb.sensor2.errors[31:0]
+@22
+sonar_tb.sensor2.notes[31:0]
+[pattern_trace] 1
+[pattern_trace] 0

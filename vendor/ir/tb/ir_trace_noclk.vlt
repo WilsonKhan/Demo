@@ -1,0 +1,11 @@
+`verilator_config
+// For a text VCD (--trace instead of --trace-fst; simulate.sh does not use this file): also leave out the 50 MHz clock,
+// which alone would be 40 million lines of text. Used together with ir_trace.vlt.
+tracing_off -scope "ir_tb.clk"
+tracing_off -scope "ir_tb.dut.iCLK"
+tracing_off -scope "ir_tb.u_nec.clk"
+tracing_off -scope "ir_tb.u_nec.s"
+tracing_off -scope "ir_tb.u_nec.fall"
+tracing_off -scope "ir_tb.dut.idle_count_flag"
+tracing_off -scope "ir_tb.dut.state_count_flag"
+tracing_off -scope "ir_tb.dut.data_count_flag"

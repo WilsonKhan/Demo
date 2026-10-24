@@ -1,0 +1,76 @@
+[*]
+[*] GTKWave Analyzer v3.3.118 (w)1999-2023 BSI
+[*] MTRX3700 Major Project: IR remote -> Terasic decoder: signal list for waveform.fst
+[*]
+[dumpfile] "waveform.fst"
+[savefile] "ir.gtkw"
+[timestart] 0
+[size] 1600 924
+[pos] -1 -1
+*-23.000000 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] ir_tb.
+[treeopen] ir_tb.dut.
+[treeopen] ir_tb.remote.
+[treeopen] ir_tb.u_nec.
+[sst_width] 273
+[signals_width] 280
+[sst_expanded] 1
+[sst_vpaned_height] 328
+@200
+-The wire (what the FPGA pin sees: low = burst)
+@28
+[color] 2
+ir_tb.irda
+@200
+-The remote (inside the model)
+@28
+ir_tb.remote.carrier_on
+@28
+ir_tb.remote.key_down
+@22
+ir_tb.remote.frames_sent[31:0]
+@22
+ir_tb.remote.repeats_sent[31:0]
+@200
+-Terasic decoder
+@22
+ir_tb.dut.state[1:0]
+@22
+ir_tb.dut.bitcount[5:0]
+@22
+ir_tb.dut.data[31:0]
+@28
+[color] 4
+ir_tb.dut.data_ready
+@22
+ir_tb.dut.oDATA[31:0]
+@200
+-nec_decoder (the minimal one)
+@28
+ir_tb.u_nec.in_frame
+@22
+ir_tb.u_nec.n[5:0]
+@22
+ir_tb.u_nec.sr[31:0]
+@28
+[color] 4
+ir_tb.u_nec.valid
+@28
+[color] 1
+ir_tb.u_nec.repeat_code
+@22
+ir_tb.u_nec.code[31:0]
+@200
+-The model's monitor (what it decoded from the wire)
+@28
+ir_tb.remote.in_frame
+@22
+ir_tb.remote.mon_bits[31:0]
+@22
+ir_tb.remote.mon_word[31:0]
+@22
+ir_tb.remote.frames_decoded[31:0]
+@22
+ir_tb.remote.repeats_decoded[31:0]
+[pattern_trace] 1
+[pattern_trace] 0

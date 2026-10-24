@@ -1,0 +1,46 @@
+﻿# ===========================================
+# MTRX3700 Major Project - Group 26
+# Git ignore rules
+# ===========================================
+
+# Verilator generated build directories
+build/
+obj_dir/
+**/obj_dir/
+**/obj_dir_top/
+
+# Simulation waveforms and temporary outputs
+*.vcd
+*.fst
+*.vvp
+*.wlf
+*.log
+
+# Temporary source backups
+*.orig
+*.before_*
+
+# Quartus generated outputs
+db/
+incremental_db/
+output_files/
+*.rpt
+*.summary
+*.smsg
+*.qws
+*.sof
+*.pof
+
+# Python temporary files
+__pycache__/
+*.pyc
+
+# Editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*~

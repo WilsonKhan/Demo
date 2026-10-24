@@ -1,0 +1,8 @@
+`verilator_config
+// Keep the free-running counters out of the waveform: they change on every one of the ~40 million
+// clocks of the run and would make the FST tens of megabytes. Everything else (the pin, the FSM
+// state, the bit counter, the data word, data-ready) is traced.
+tracing_off -scope "ir_tb.dut.idle_count"
+tracing_off -scope "ir_tb.dut.state_count"
+tracing_off -scope "ir_tb.dut.data_count"
+tracing_off -scope "ir_tb.u_nec.gap"

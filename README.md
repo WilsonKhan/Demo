@@ -1,7 +1,7 @@
 # MTRX3700 Major Project — FPGA Autonomous Precision Docking
 
 **Group 26 | University of Sydney | Semester 2, 2026**  
-**README revision:** `0.2.0` — 24 October 2026  
+**README revision:** `0.2.1` — 24 October 2026  
 **RTL baseline:** V1 simulated, commit [`b1b4645`](https://github.com/jyan6400/MTRX3700-Major-Project/commit/b1b4645)  
 **Current priority:** V1 FPGA/hardware bring-up and V2 independent RTL development  
 **Target milestone:** V4 HD-candidate demonstration; V5 is optional and must not jeopardise V4.
@@ -95,7 +95,7 @@ flowchart TD
 
 ## 4. Five-member workstream and RTL ownership
 
-The existing README identified **Jason, Luke, Marcus and Advay**. A fifth member is now part of the requested team structure, but their name and final allocation require confirmation. The table below is a **proposed V2–V5 ownership reallocation**, not an assertion that all five have already written the V1 files.
+The existing README identified **Jason, Luke, Marcus and Advay**. The fifth group member is **Wilson**. The M5 workstream below is a proposed V2–V5 allocation; confirm the exact module boundaries as the team finalises interfaces. The table below is a **proposed V2–V5 ownership reallocation**, not an assertion that all five have already written the V1 files.
 
 | Workstream | Proposed owner | Relevant V1 source / starting point | V2–V5 new RTL ownership | Primary tests |
 |---|---|---|---|---|
@@ -103,7 +103,7 @@ The existing README identified **Jason, Luke, Marcus and Advay**. A fifth member
 | **M2 — Target perception & tracking** | **Marcus** | `red_mask.sv`, `led_centroid.sv`, `vision_result_cdc.sv` | Blob validation, multi-frame tracking, persistent reference/visibility metrics, target identity | False positives, target change, occlusion, stale frame |
 | **M3 — Docking navigation & repositioning** | **Jason** | `docking_fsm.sv`, `steering_controller.sv`, `motion_interface.sv` | Steering tuning, multi-bay cycle FSM, timed reverse, V4 visual return, V3 bypass | FSM assertions, transition safety, baseline vs improved return |
 | **M4 — Sensor safety & actuation** | **Advay** | `sonar_result_cdc.sv`, `sonar_freshness.sv`, `ir_safety_latch.sv`; Ed `chassis_drive.sv` | Range confidence, forward/reverse safety supervisor, command watchdog, optional LED interface | No-echo, stale data, E-stop, zero-PWM and UART timing |
-| **M5 — Game/bay orchestration & system verification** | **Fifth member — confirm name** | **New workstream** (no standalone V1 module yet) | Multi-bay LED target selection/sequencing, bay status/handshake and mode selection; synthesis-safe game logic | Target selection, event sequencing, illegal states, system integration |
+| **M5 — Game/bay orchestration & system verification** | **Wilson** | **New workstream** (no standalone V1 module yet) | Multi-bay LED target selection/sequencing, bay status/handshake and mode selection; synthesis-safe game logic | Target selection, event sequencing, illegal states, system integration |
 
 **Original V1 provenance must be recorded separately from future ownership.** Git commit author, official Ed/vendor origin and member who substantively edited a file are distinct. Maintain `OWNERS.md` listing file path, author/student ID, source, adapted/new status, testbench owner and reviewer. A module grouping alone is not sufficient evidence of individual contribution.
 
@@ -264,12 +264,13 @@ verilator --binary --timing -Wno-CASEINCOMPLETE \
 
 ## 11. README revision log
 
-**Current README revision: `0.2.0` (24 October 2026).** This is a documentation revision identifier, **not** the current RTL version. V1 is the only committed implementation baseline as of this revision.
+**Current README revision: `0.2.1` (24 October 2026).** This is a documentation revision identifier, **not** the current RTL version. V1 is the only committed implementation baseline as of this revision.
 
 | README revision | Date | Trigger | Changes | RTL/hardware status |
 |---|---|---|---|---|
 | `0.1.0` | Before 24 Oct 2026 | Initial project plan | Airport-inspired multi-bay concept, four-workstream plan and original rung ladder | Historical plan; many old dates/filenames superseded |
 | **`0.2.0`** | **24 Oct 2026** | **V1 simulation baseline published** | Actual repository and V1 status; proposed five-workstream allocation; cumulative V1–V5 matrix; revised 25–28 Oct schedule; verification definitions and README revision policy | **V1 simulated**, hardware/Quartus not yet verified |
+| **`0.2.1`** | **24 Oct 2026** | Team ownership clarification | Named Wilson as fifth team member and proposed M5 owner; exact V2 interfaces remain subject to team agreement | V1 simulation baseline unchanged |
 | `0.3.0` *(reserved)* | After V1 hardware review | Hardware feedback | Confirm pin map, clock timing, actual limitations, changes to V2 scope and ownership | Pending |
 | `0.4.0` *(reserved)* | After V2 verification | V2 test review | Record results, actual V2 feature set and V3 changes | Pending |
 | `0.5.0` *(reserved)* | After V3 verification | V3 test review | Record repeated-docking evidence, V4 algorithm/bypass changes | Pending |

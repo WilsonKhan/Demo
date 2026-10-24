@@ -538,21 +538,54 @@ module major_project_top #(
             cfg_sync <= {cfg_sync[0], cfg_done};
     end
 
-    // LEDR0: camera configured
-    // LEDR1: sonar currently valid
-    // LEDR2: motor enabled
-    // LEDR3: emergency stop active
-    // LEDR4: SW0 armed
-    // LEDR5..7: navigation FSM state
-    // LEDR8: vision CDC overrun (sticky, cam domain)
-    // LEDR9: sonar CDC overrun (sticky, sonar domain)
+    // ====================================================
+    // V1 TEMPORARY CAMERA DIAGNOSTICS
+    // ====================================================
+    // 50 MHz domain only. Uses existing vision CDC outputs.
+    // SW0 must remain OFF during hardware testing.
+
+    logic [3:0] diag_frame_count;
+    logic       diag_frame_heartbeat;
+    logic       diag_target_valid;
+    logic [9:0] diag_target_x;
+
+    always_ff @(posedge CLOCK_50 or negedge rst_n_50) begin
+        if (!rst_n_50) begin
+            diag_frame_count     <= 4'd0;
+            diag_frame_heartbeat <= 1'b0;
+            diag_target_valid    <= 1'b0;
+            diag_target_x        <= 10'd0;
+        end else if (nav_frame_done) begin
+            diag_frame_count <= diag_frame_count + 1'b1;
+
+            // Toggle every 16 completed frames.
+            if (diag_frame_count == 4'd15)
+                diag_frame_heartbeat <= ~diag_frame_heartbeat;
+
+            diag_target_valid <= nav_target_valid;
+            diag_target_x     <= nav_target_x;
+        end
+    end
+
+    // LEDR0: OV7670 configuration complete
+    // LEDR1: Camera frame heartbeat
+    // LEDR2: Red target detected in latest frame
+    // LEDR3: Target left of centre
+    // LEDR4: Target right of centre
+    // LEDR5: Emergency stop active
+    // LEDR6: Sonar valid
+    // LEDR7: Reserved
+    // LEDR8: Vision CDC overrun
+    // LEDR9: Sonar CDC overrun
 
     assign LEDR[0] = cfg_sync[1];
-    assign LEDR[1] = sonar_valid;
-    assign LEDR[2] = safe_motor_enable;
-    assign LEDR[3] = emergency_stop;
-    assign LEDR[4] = arm;
-    assign LEDR[7:5] = state_debug;
+    assign LEDR[1] = diag_frame_heartbeat;
+    assign LEDR[2] = diag_target_valid;
+    assign LEDR[3] = diag_target_valid && (diag_target_x < 10'd280);
+    assign LEDR[4] = diag_target_valid && (diag_target_x > 10'd360);
+    assign LEDR[5] = emergency_stop;
+    assign LEDR[6] = sonar_valid;
+    assign LEDR[7] = 1'b0;
     assign LEDR[8] = vision_cdc_overrun;
     assign LEDR[9] = sonar_cdc_overrun;
 

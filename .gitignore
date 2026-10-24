@@ -56,3 +56,6 @@ Thumbs.db
 
 # Quartus diagnostic dumps
 quartus/*_dump.txt
+
+# Quartus Programmer configuration
+quartus/*.cdf

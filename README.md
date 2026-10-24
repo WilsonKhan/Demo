@@ -1,7 +1,7 @@
 # MTRX3700 Major Project — FPGA Autonomous Precision Docking
 
 **Group 26 | University of Sydney | Semester 2, 2026**  
-**README revision:** `0.2.1` — 24 October 2026  
+**README revision:** `0.2.2` — 24 October 2026  
 **RTL baseline:** V1 simulated, commit [`b1b4645`](https://github.com/jyan6400/MTRX3700-Major-Project/commit/b1b4645)  
 **Current priority:** V1 FPGA/hardware bring-up and V2 independent RTL development  
 **Target milestone:** V4 HD-candidate demonstration; V5 is optional and must not jeopardise V4.
@@ -93,46 +93,69 @@ flowchart TD
 
 **Hardware pin conventions currently encoded in `major_project_top.sv`:** OV7670 uses GPIO_1[10:25]; sonar trigger GPIO_1[27], echo GPIO_1[29]; chassis TX GPIO_1[31]; DE1-SoC onboard IRDA_RXD; KEY0 and SW0. These are **RTL logical port mappings**; Quartus package pin constraints and electrical compatibility must be checked independently before programming hardware.
 
-## 4. Five-member workstream and RTL ownership
+## 4. Five-person RTL ownership and interfaces
 
-The existing README identified **Jason, Luke, Marcus and Advay**. The fifth group member is **Wilson**. The M5 workstream below is a proposed V2–V5 allocation; confirm the exact module boundaries as the team finalises interfaces. The table below is a **proposed V2–V5 ownership reallocation**, not an assertion that all five have already written the V1 files.
+The five development responsibilities follow the **functional RTL boundaries already used in this repository**, rather than assigning Wilson unrelated game orchestration. **Luke owns camera acquisition; Wilson owns image processing; Marcus owns perception; Jason owns navigation and docking orchestration; Advay owns actuation, ranging and safety.** Existing `rtl/` subdirectories are functional categories, not proof of historical individual authorship. Changes to actual file ownership must be agreed and recorded in `OWNERS.md`.
 
-| Workstream | Proposed owner | Relevant V1 source / starting point | V2–V5 new RTL ownership | Primary tests |
-|---|---|---|---|---|
-| **M1 — Camera & pixel preprocessing** | **Luke** | `camera_stream_adapter.sv`, Ed camera capture/config | Streaming smoothing, illumination normalisation, feature-preprocessing | Pixel alignment, image borders, frame validity |
-| **M2 — Target perception & tracking** | **Marcus** | `red_mask.sv`, `led_centroid.sv`, `vision_result_cdc.sv` | Blob validation, multi-frame tracking, persistent reference/visibility metrics, target identity | False positives, target change, occlusion, stale frame |
-| **M3 — Docking navigation & repositioning** | **Jason** | `docking_fsm.sv`, `steering_controller.sv`, `motion_interface.sv` | Steering tuning, multi-bay cycle FSM, timed reverse, V4 visual return, V3 bypass | FSM assertions, transition safety, baseline vs improved return |
-| **M4 — Sensor safety & actuation** | **Advay** | `sonar_result_cdc.sv`, `sonar_freshness.sv`, `ir_safety_latch.sv`; Ed `chassis_drive.sv` | Range confidence, forward/reverse safety supervisor, command watchdog, optional LED interface | No-echo, stale data, E-stop, zero-PWM and UART timing |
-| **M5 — Game/bay orchestration & system verification** | **Wilson** | **New workstream** (no standalone V1 module yet) | Multi-bay LED target selection/sequencing, bay status/handshake and mode selection; synthesis-safe game logic | Target selection, event sequencing, illegal states, system integration |
+| Workstream / owner | Current RTL directory and V1 starting points | Proposed new V2–V5 contributions | Primary verification |
+|---|---|---|---|
+| **M1 — Luke: camera capture & stream interface** | `rtl/integration/camera_stream_adapter.sv`; `vendor/camera/rtl/ov7670_capture.sv`, `ov7670_config.sv` | Capture timing/validity, stream-format alignment, frame-loss handling and acquisition reliability; coordinate upstream camera configuration | Camera timing, pixel positions, frame boundaries, reset and frame-loss tests |
+| **M2 — Wilson: image processing** | `rtl/image_processing/red_mask.sv` | Streaming spatial filtering/denoising, red-pixel classification improvements, lighting robustness, and V4 reference-marker feature preprocessing | Image input → filtered/masked output, pixel alignment, false-colour cases, edges and latency |
+| **M3 — Marcus: perception & tracking** | `rtl/perception/led_centroid.sv`; collaborate on `vision_result_cdc.sv` integration | Object/blob validity, frame-level centroid/target confidence, temporal tracking, multi-reference visibility estimator and target-change recognition | Centroid/feature golden model, false target, target loss, marker visibility and tracking tests |
+| **M4 — Jason: navigation, docking & bay sequencing** | `rtl/navigation/docking_fsm.sv`, `steering_controller.sv`, `camera_frame_watchdog.sv`; `rtl/actuation/motion_interface.sv` is a cross-boundary navigation integration file | Steering/speed tuning; dock → reverse → reacquire cycle; internal bay-selection/game FSM and V4 visibility-aware return with V3 bypass; optional V5 replanning | Motion/FSM tests, multi-cycle docking, steering and visual-return comparison |
+| **M5 — Advay: sensors, safety & chassis actuation** | `rtl/actuation/ir_safety_latch.sv`, `sonar_freshness.sv`, `rtl/integration/sonar_result_cdc.sv`; `vendor/chassis/rtl/chassis_drive.sv` | Range filtering, forward/reverse motion guards, emergency-stop arbitration, command watchdog/priority, optional approved LED control signalling | No-echo, stale-range, IR stop, reverse hazards, zero-command and UART timing tests |
 
-**Original V1 provenance must be recorded separately from future ownership.** Git commit author, official Ed/vendor origin and member who substantively edited a file are distinct. Maintain `OWNERS.md` listing file path, author/student ID, source, adapted/new status, testbench owner and reviewer. A module grouping alone is not sufficient evidence of individual contribution.
+**Integration ownership:** Jason coordinates `rtl/integration/major_project_top.sv`, but each member must verify their own path into the top-level. For the game/three-bay functionality, **Jason owns the FPGA navigation/selection state machine**, Marcus owns perceived target identity, and Advay owns any approved electrical/communication interface for external lights. This avoids an artificial sixth workstream or assigning image-processing work away from Wilson.
 
-**Boundary rule:** each workstream should contribute at least one substantive synthesizable RTL modification **and its own self-checking tests** per planned rung, where applicable. If an interface or module is reassigned, update the ownership table and change log at the same time. All safety gates remain active independently of game logic and bypass mode.
+**Original V1 provenance:** This table allocates review and future development; it does **not** retrospectively claim each person authored the current V1 files. Record source, original/new or adapted status, responsible student, own RTL/TB and reviewer in `OWNERS.md`, distinguishing vendor/course RTL from original contributions.
 
-### Required workstream hand-offs
+### Functional pipeline and workstream hand-offs
 
-| Producer → consumer | Contract to agree/freeze for V2 | Anticipated V3–V5 additions |
+```text
+ OV7670 / PCLK
+     |
+     v
+ [Luke: camera capture + RGB565 frame/pixel-valid stream]
+     |
+     v
+ [Wilson: image filtering + colour/marker feature mask]
+     |
+     v
+ [Marcus: centroid, tracking, target confidence, visibility]
+     |  frame-level result + safe CDC to 50 MHz
+     v
+ [Jason: docking FSM, steering, bay selection and reposition]
+     |  signed left/right requests + mode
+     v
+ [Advay: range/IR supervision, final motor gating + chassis UART] ---> UGV02
+     ^
+     +------- RCWL-1601 sonar / IR / safety inputs
+```
+
+| Producer → consumer | Required V2 contract | Planned V3–V5 additions |
 |---|---|---|
-| M1 → M2 | RGB565, valid, x/y, frame_start/frame_end, clock and cycle alignment | Filter valid/latency, optional stable reference features |
-| M2 → M3 | Frame-result strobe, `target_valid`, `target_x`, confidence/age when added | `target_id`, stability, viewing-quality estimate |
-| M4 → M3 | `distance_mm`, `sonar_valid`, IR latch / safe-enable | Reverse limit, fault reason and optional motion timeout |
-| M3 → M4 | Left/right signed wheel requests, drive enable, stop priority | Direction/mode and reverse supervisor requests |
-| M5 → M2/M3 | Selected bay or active-light event and valid strobe | Switch notification, timeout, acknowledgement/fallback |
-| M3/M4 → chassis | UART command format and 10 ms scheduling | Urgent stop scheduling if measured necessary |
+| Luke → Wilson | RGB565, `pixel_x/y`, `pixel_valid`, `frame_start/end`, PCLK timing | Image quality/frame-validity markers |
+| Wilson → Marcus | Aligned pixel coordinates, valid, red/feature mask, optional filtering latency | Persistent marker/reference feature stream |
+| Marcus → Jason | Atomic frame event, `target_valid`, `target_x`, optional confidence | Target ID, track age, viewing-zone/quality metric |
+| Advay → Jason | `sonar_valid`, `distance_mm`, `emergency_stop`, command permission | Reverse limit, fault flags, peripheral status |
+| Jason → Advay | Signed left/right wheel demand, enable/stop requests | Reverse mode, selected bay and approved LED-output command |
+| Jason ↔ Marcus | Current target selection and observed target location | Bay selection/identity consistency and target re-acquisition |
 
-**Design rule:** use coherent, registered frame-level observations; do not let a half-updated image accumulator directly steer the robot. New multi-bit crossings need verified synchronisation/handshakes. Freeze widths/polarities in a separate interface note once agreed.
+**Important:** These are workstream contracts to finalise before V2 integration—not a claim that all the proposed ports exist in V1. Existing CDC and safety paths must remain intact. Agree exact signal widths, handshakes, latency and clock-domain ownership before adding ports.
 
 ## 5. Version rung requirements (cumulative)
 
-Each row specifies the **additional expected implementation** beyond the prior version. A feature may be altered, deferred or removed when verification finds it infeasible, provided the change is recorded below. A rung is **not complete** when only one member's code runs.
+Each cell describes **new expected RTL work or maintenance of that module's interface** beyond the previous rung. The engineering progression remains airport-inspired precision docking, with a three-bay demonstration. Every member is expected to implement and unit-test a substantive synthesizable contribution in V2–V4; requirements may be revised after actual integration/hardware testing and documented in the revision log.
 
-| Rung / intent | M1 — Luke: camera | M2 — Marcus: perception | M3 — Jason: navigation | M4 — Advay: safety & UART | M5 — fifth member: bays/game |
+| Rung / outcome | **Luke — Camera** | **Wilson — Image processing** | **Marcus — Perception** | **Jason — Navigation & bay FSM** | **Advay — Actuation & safety** |
 |---|---|---|---|---|---|
-| **V1 — Basic single-bay docking** *(simulated baseline)* | OV7670 stream adaptation and coordinates | Red mask + centroid per frame | Acquire, approach, 250 mm stop; centroid steering | Sonar range validity, IR latch, 10 ms UART and motor gating | No distinct M5 module in committed V1; review baseline architecture |
-| **V2 — Robust single-bay docking** *(RTL Sun 25 Oct, 22:00)* | Streaming noise-reduction stage with preserved pixel timing; optional lighting normalisation if justified | Blob area/shape validation, confidence and distractor rejection | Steering deadband/smoothing, bounded speed and approach tuning | Distance deglitch/filter, stale/bad reading handling; stop-response regression | Implement a synthesizable **bay-selection/game FSM skeleton** with safe reset, selected-bay register and unit TB; isolate from V1 motor path |
-| **V3 — Multi-bay repeatability** *(RTL Tue 27 Oct, 11:00)* | Stable frame/feature output while robot moves; frame-loss handling | Temporal target confirmation, old-target invalidation and reacquisition | `DOCKED → REVERSE → REACQUIRE → APPROACH`, bounded timed retreat, no stale steering | Hard reverse time/distance limits; safety arbitration in reverse; watchdog | Activate next-bay selection / LED event FSM, prove no self-triggered false target; manual-light fallback permitted |
-| **V4 — Visibility-aware repositioning / HD candidate** *(RTL Wed 28 Oct, 18:00)* | Reliable high-contrast reference-marker or viewing-zone features | Multi-reference visibility quality and stable-valid metric, including false-reference rejection | Camera-feedback decision to end/correct reverse; **functional V3 timed-reverse bypass** | Keep stop/IR/sonar arbitration operative in both modes; log faults and zero-command response | Coordinate current/next bay safely, add mode/status integration and reproducible test sequence |
-| **V5 — Optional extension** *(after V4 gates)* | Handle rapid lighting changes without corrupting frame outputs | Detect target disappearance/change with confidence, clear old track | Stop, reselect, replan and resume only after newly valid visual target | Peripheral disconnect/ACK timeout handling where hardware supports it | Dynamic mid-operation bay switching, LED acknowledgement / fault fallback if approved |
+| **V1 — Single-bay approach (simulated baseline)** | OV7670 acquisition and aligned RGB565 pixel stream | Fixed red-colour mask | Frame-based red centroid and validity | Acquire → approach → dock; centroid steering and 250 mm target stop | Sonar validity, latched IR stop, final motor gating and 10 ms UART |
+| **V2 — Robust docking (RTL Sunday 25 Oct, 22:00)** | Validate stream timing; handle malformed/missing frames without corrupting downstream results | **Own streaming filter** (e.g. 3×3 noise suppression or pixel-neighbour consensus) and tuned colour mask while preserving coordinate/valid alignment | Target area/shape/confidence gate and distractor rejection; consume Wilson's output | Bounded steering, deadband/speed scheduling and alignment-aware approach | Range deglitch/filter or confidence and stale-measurement handling; repeat stop-latency/fault tests |
+| **V3 — Repeated multi-bay docking (RTL Tuesday 27 Oct, 11:00)** | Camera reliability during movement, frame dropout recovery | Stable red/feature segmentation as distance/exposure changes; prevent filter startup artefacts | Multi-frame confirmation, stale-track invalidation, next-target reacquisition | **Dock → bounded timed reverse → reacquire → dock**; own bay-selection/LED-event sequencing FSM (manual-light fallback if external controller unavailable) | Safe bounded reverse supervision, IR stop in every state, optional LED peripheral signalling |
+| **V4 — Visibility-aware repositioning (HD candidate; RTL Wednesday 28 Oct, 18:00)** | Stable reference-frame acquisition and streaming interface under retreat | **Extract persistent reference-marker features** / viewing-zone cues without a frame buffer where practical | Combine features into a **quantitative viewing-quality/visibility metric**, with stability/confidence tests | **Use visual feedback to end/correct retreat**, with a working selectable V3 timed-reverse bypass | Enforce reverse limits and stop priority in both V3/V4 modes; validate actuator/IR/range fault behaviour |
+| **V5 — Dynamic bay reassignment (optional, only after V4 stability)** | Robust frame-validity across target-light changes | Handle abrupt lighting changes; preserve classification and feature validity | Detect lost/switched active target and clear obsolete observations | Controlled stop, select new bay, replan and resume only on confirmed target | Peripheral link/ACK timeout and disconnect fail-safe **if approved hardware supports it** |
+
+**V4 is an HD candidate, not a guaranteed grade.** The team must demonstrate a meaningful custom capability, genuine operating baseline/bypass, quantitative improvement and physical evidence. **V5 is optional** and must never destabilise the verified V4 design. In all reverse trials, the front-facing sonar does not provide rear obstacle coverage; use a supervised, physically cleared bounded area.
 
 ### Rung evidence and reason for progression
 
@@ -264,13 +287,14 @@ verilator --binary --timing -Wno-CASEINCOMPLETE \
 
 ## 11. README revision log
 
-**Current README revision: `0.2.1` (24 October 2026).** This is a documentation revision identifier, **not** the current RTL version. V1 is the only committed implementation baseline as of this revision.
+**Current README revision: `0.2.2` (24 October 2026).** This is a documentation revision identifier, **not** the current RTL version. V1 is the only committed implementation baseline as of this revision.
 
 | README revision | Date | Trigger | Changes | RTL/hardware status |
 |---|---|---|---|---|
 | `0.1.0` | Before 24 Oct 2026 | Initial project plan | Airport-inspired multi-bay concept, four-workstream plan and original rung ladder | Historical plan; many old dates/filenames superseded |
 | **`0.2.0`** | **24 Oct 2026** | **V1 simulation baseline published** | Actual repository and V1 status; proposed five-workstream allocation; cumulative V1–V5 matrix; revised 25–28 Oct schedule; verification definitions and README revision policy | **V1 simulated**, hardware/Quartus not yet verified |
 | **`0.2.1`** | **24 Oct 2026** | Team ownership clarification | Named Wilson as fifth team member and proposed M5 owner; exact V2 interfaces remain subject to team agreement | V1 simulation baseline unchanged |
+| **`0.2.2`** | **24 Oct 2026** | Corrected five-person split | Luke camera, Wilson image processing, Marcus perception, Jason navigation/bay sequencing, Advay actuation/safety; replaced V1–V5 workstream matrix and hand-offs | V1 simulated RTL unchanged |
 | `0.3.0` *(reserved)* | After V1 hardware review | Hardware feedback | Confirm pin map, clock timing, actual limitations, changes to V2 scope and ownership | Pending |
 | `0.4.0` *(reserved)* | After V2 verification | V2 test review | Record results, actual V2 feature set and V3 changes | Pending |
 | `0.5.0` *(reserved)* | After V3 verification | V3 test review | Record repeated-docking evidence, V4 algorithm/bypass changes | Pending |

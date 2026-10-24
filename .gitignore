@@ -31,6 +31,15 @@ output_files/
 *.sof
 *.pof
 
+# Additional Quartus generated artifacts
+*.done
+*.jdi
+*.pin
+*.sld
+
+# Local timing constraint backups
+*.sdc.backup
+
 # Python temporary files
 __pycache__/
 *.pyc
@@ -44,3 +53,6 @@ Thumbs.db
 *.tmp
 *.bak
 *~
+
+# Quartus diagnostic dumps
+quartus/*_dump.txt

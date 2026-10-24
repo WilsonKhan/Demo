@@ -77,6 +77,29 @@ module led_centroid_tb;
         input logic [31:0] expected_count
     );
 
+        // frame_end was asserted for one clock.
+        // Release frame inputs before awaiting the sequential result.
+        @(negedge clk);
+        frame_start = 1'b0;
+        frame_end = 1'b0;
+        pixel_valid = 1'b0;
+
+        // The iterative centroid calculation takes 32 PCLK cycles.
+        begin : wait_for_centroid
+            bit completed;
+            completed = 1'b0;
+            for (int n = 0; n < 40; n++) begin
+                @(posedge clk);
+                #1;
+                if (frame_done) begin
+                    completed = 1'b1;
+                    break;
+                end
+            end
+            if (!completed)
+                $fatal(1, "Timeout waiting for centroid frame_done");
+        end
+
         if (frame_done !== 1'b1)
             $fatal(1,
                 "FAIL %s: frame_done must pulse at frame completion",

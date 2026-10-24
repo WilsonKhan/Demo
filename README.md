@@ -1,9 +1,9 @@
 # MTRX3700 Major Project — FPGA Autonomous Precision Docking
 
 **Group 26 | University of Sydney | Semester 2, 2026**  
-**README revision:** `0.2.2` — 24 October 2026  
-**RTL baseline:** V1 simulated, commit [`b1b4645`](https://github.com/jyan6400/MTRX3700-Major-Project/commit/b1b4645)  
-**Current priority:** V1 FPGA/hardware bring-up and V2 independent RTL development  
+**README revision:** `0.3.0` — 25 October 2026  
+**RTL baseline:** V1 hardware bring-up checkpoint, commit [`20cbc4b`](https://github.com/jyan6400/MTRX3700-Major-Project/commit/20cbc4b) on `main` (release tag `v1.0` planned after this documentation revision)  
+**Current priority:** V2 independent RTL development, camera visual diagnostics and robust docking; V1 quantitative docking verification remains open  
 **Target milestone:** V4 HD-candidate demonstration; V5 is optional and must not jeopardise V4.
 
 > **Living specification.** This README describes the current implemented baseline and *proposed* V2–V5 work. Subsequent rungs, interfaces, assignments and test targets may change as hardware feasibility and verification results become known. Review and increment the README revision after **every version's testing/verification stage**; record decisions in the revision log at the bottom. A proposed feature is not evidence that it is implemented, synthesised or physically demonstrated.
@@ -16,7 +16,7 @@ The airport context provides a practical engineering narrative: visual docking g
 
 The project develops cumulatively:
 
-- **V1 — Single-bay docking:** acquire one red marker, align, approach and stop.
+- **V1 — Single-bay docking:** acquire one red marker, align, approach and stop (hardware bring-up verified; quantitative physical docking still pending).
 - **V2 — Robust docking:** suppress visual/range noise, improve detection reliability and smooth motion.
 - **V3 — Repeated multi-bay docking:** dock, make a bounded retreat, reacquire the next illuminated bay and repeat.
 - **V4 — Visibility-aware repositioning (HD candidate):** improve the return-to-viewing-position behaviour using actual visual feedback, and compare against V3's timed baseline.
@@ -34,23 +34,28 @@ The three illuminated bays form an airport-inspired **dynamic bay-assignment dem
 
 Targets may be refined with tutor approval and documented experimental evidence. Do not confuse the **8.826 ms simulated stop-event-to-UART-message observation** with full camera-to-actuation latency or physical stopping distance.
 
-## 2. Actual V1 implementation status (24 October)
+## 2. Actual V1 implementation status (25 October)
 
-**Committed:** `rtl/`, `sim/`, `vendor/` and `.gitignore` in `b1b4645` on `main`.
+**Known-good source checkpoint:** [`20cbc4b`](https://github.com/jyan6400/MTRX3700-Major-Project/commit/20cbc4b), merged to `main` on 25 October 2026. It includes integrated Quartus project settings, DE1-SoC pin assignments, preliminary timing constraints, revised centroid RTL/tests and temporary camera-debug LED mappings. The hardware observations below were made with that diagnostic `.sof`. Tag `v1.0` **only after** committing this updated README; record the final tag hash in the verification log.
 
-| Area | V1 implementation | Verification status |
+| Area | V1 implementation | Evidence and status |
 |---|---|---|
-| Camera | OV7670 configuration/capture; RGB565 pixel stream with coordinates | Component and simulation integration tests |
-| Vision | Red threshold/mask, red-region centroid and frame-level result CDC | Unit/integration simulation |
-| Navigation | Acquire → approach → docked FSM; centroid-based steering | Unit/integration simulation |
-| Sonar | RCWL-1601 echo ranging, CDC, age/range validation | Unit/integration simulation |
-| Safety | SW0 arming; latched NEC IR emergency stop; camera/sonar freshness gating | Safety simulation |
-| Chassis | Signed left/right motor requests encoded as 115200-baud UART commands, 10 ms command scheduling | End-to-end UART simulation |
-| System | `major_project_top.sv` integration | Top-level simulated, no physical evidence yet |
+| FPGA implementation | DE1-SoC `5CSEMA5F31C6`; integrated QPF/QSF/SDC | **PASS:** Quartus Prime Lite 18.1 full compilation, 0 errors; 279 warnings to triage; fully constrained setup/hold; worst setup **+4.719 ns**, hold **+0.122 ns** across reported corners |
+| Camera capture | OV7670 configuration, RGB565 acquisition, stream/CDC | **Physical preliminary PASS:** `LEDR0` configuration complete, `LEDR1` frame heartbeat blinking; LEDR0 does not independently prove camera register ACKs |
+| Red vision and perception | Red mask, frame centroid and horizontal target coordinate | **Physical preliminary PASS:** target-valid and left/right LEDs responded to illuminated red LED; position accuracy and unequal apparent field of view not quantified |
+| Ultrasonic | RCWL-1601 echo ranging, CDC, validity/freshness | **Physical preliminary PASS:** valid-range indicator observed and responded to a nearby hand; absolute distance accuracy and the 250 mm stopping threshold not physically characterised |
+| IR and arming | SW0 arming and latched NEC IR stop | **Physical PASS:** CH+ releases IR latch; POWER activates latch and stopped moving wheels; SW0 OFF independently stopped both wheels in elevated-chassis testing |
+| Chassis UART / motors | 115200-baud JSON `T:11` drive commands, nominal 10 ms scheduling | **Physical PASS for basic actuation:** both wheels moved under FPGA control with the chassis securely raised; motion intermittent, improved after SW0 OFF→ON; physical UART waveform and command-loss behaviour not independently measured |
+| Motor-control simulation | Chassis model, top-level safety and latency testbenches | **PASS:** `motion_uart_tb` 14/14, `top_uart_safety_tb` 8/8 and `top_uart_latency_tb` 4/4 = **26/26** in the latest dedicated regression; UGV02 model recorded 0 UART protocol errors |
+| Full autonomous docking | Guided approach, nominal 250 mm stop | **NOT YET VERIFIED:** repeatable on-floor docking, docking error, stopping distance, measured actual camera-to-UART latency and multi-bay behaviour |
 
-**Current simulation evidence:** 231/231 accumulated numbered RTL checks passed, including the four stop-latency checks at 10 ms UART scheduling. The testbench observed **8.826 ms** from its injected IR-stop or 250 mm docking-stop event to a decoded stop UART message. This is a test-specific observation, not a proven worst-case hardware limit. Vendor camera and sonar example regressions were also exercised separately.
+**Legacy simulation baseline:** the earlier README recorded **231/231 accumulated checks** across unit/integration benches at the previous V1 baseline. The latest dedicated motor/UART subset was rerun after diagnostic changes and passed 26/26; this is not a claim that every earlier unit test was rerun at `20cbc4b`.
 
-**Not yet verified:** integrated Quartus synthesis and timing closure; correct combined GPIO/electrical wiring; real camera-to-wheel control; real ultrasonic calibration; actual physical emergency stop and stopping distance; repeated bay switching, reverse/reacquisition, bypass comparisons and HD-level novelty.
+**UART timing evidence:** the top-level bench measured **8.826 ms** from each injected IR emergency-stop or 250 mm stop condition to a completed decoded UART zero-speed message. This is a **simulation observation**, not real camera-to-UART latency, worst-case scheduling guarantee, or measured physical wheel braking time.
+
+**Debug LED map at `20cbc4b`:** `LEDR0` camera configured; `LEDR1` toggling frame heartbeat; `LEDR2` last reported red-target valid; `LEDR3` target-x below 280; `LEDR4` target-x above 360; `LEDR5` IR emergency-stop latch; `LEDR6` sonar reading valid; `LEDR7` tied low; `LEDR8` vision CDC overrun; `LEDR9` sonar CDC overrun. These replace the original status LED mapping. A valid sonar indicator **does not** mean measured range exceeds the 250 mm motion threshold. The temporary debug counters sample `nav_target_valid`/`nav_target_x` at `nav_frame_done`; the exact alignment should be verified during V2 diagnostics.
+
+**V1 evidence still to collect:** record photos/video of the elevated-wheel test, Quartus report summary, testbench transcripts, physical stopping observations, assembly/wiring checks, and the programmed bitstream hash in `docs/verification_log.md` when that file is created. The date and observations here are a narrative record, not an archived instrumented hardware test report.
 
 ### Safety and V1 limitations
 
@@ -91,7 +96,7 @@ flowchart TD
 | OV7670 configuration | Divided 25 MHz camera PLL clock | SCCB camera register configuration | Status synchronisation to 50 MHz |
 | OV7670 master clock | 10 MHz camera PLL output | Camera XCLK | GPIO output |
 
-**Hardware pin conventions currently encoded in `major_project_top.sv`:** OV7670 uses GPIO_1[10:25]; sonar trigger GPIO_1[27], echo GPIO_1[29]; chassis TX GPIO_1[31]; DE1-SoC onboard IRDA_RXD; KEY0 and SW0. These are **RTL logical port mappings**; Quartus package pin constraints and electrical compatibility must be checked independently before programming hardware.
+**Hardware pin conventions:** OV7670 uses GPIO_1[10:25]; sonar trigger GPIO_1[27], echo GPIO_1[29]; chassis TX GPIO_1[31]; DE1-SoC onboard IRDA_RXD; KEY0 and SW0. The integrated project now includes `quartus/major_project.qsf`, `quartus/major_project.sdc`, and `hardware/de1-soc-pins.csv`. Package pin mappings have been checked against the supplied DE1-SoC CSV and the FPGA was programmed successfully; peripheral signal voltage, pull-ups and UART wiring still require conventional electrical verification before unsupervised use. The SDC includes preliminary external-interface timing assumptions, not final board-level signoff.
 
 ## 4. Five-person RTL ownership and interfaces
 
@@ -149,10 +154,10 @@ Each cell describes **new expected RTL work or maintenance of that module's inte
 
 | Rung / outcome | **Luke — Camera** | **Wilson — Image processing** | **Marcus — Perception** | **Jason — Navigation & bay FSM** | **Advay — Actuation & safety** |
 |---|---|---|---|---|---|
-| **V1 — Single-bay approach (simulated baseline)** | OV7670 acquisition and aligned RGB565 pixel stream | Fixed red-colour mask | Frame-based red centroid and validity | Acquire → approach → dock; centroid steering and 250 mm target stop | Sonar validity, latched IR stop, final motor gating and 10 ms UART |
-| **V2 — Robust docking (RTL Sunday 25 Oct, 22:00)** | Validate stream timing; handle malformed/missing frames without corrupting downstream results | **Own streaming filter** (e.g. 3×3 noise suppression or pixel-neighbour consensus) and tuned colour mask while preserving coordinate/valid alignment | Target area/shape/confidence gate and distractor rejection; consume Wilson's output | Bounded steering, deadband/speed scheduling and alignment-aware approach | Range deglitch/filter or confidence and stale-measurement handling; repeat stop-latency/fault tests |
-| **V3 — Repeated multi-bay docking (RTL Tuesday 27 Oct, 11:00)** | Camera reliability during movement, frame dropout recovery | Stable red/feature segmentation as distance/exposure changes; prevent filter startup artefacts | Multi-frame confirmation, stale-track invalidation, next-target reacquisition | **Dock → bounded timed reverse → reacquire → dock**; own bay-selection/LED-event sequencing FSM (manual-light fallback if external controller unavailable) | Safe bounded reverse supervision, IR stop in every state, optional LED peripheral signalling |
-| **V4 — Visibility-aware repositioning (HD candidate; RTL Wednesday 28 Oct, 18:00)** | Stable reference-frame acquisition and streaming interface under retreat | **Extract persistent reference-marker features** / viewing-zone cues without a frame buffer where practical | Combine features into a **quantitative viewing-quality/visibility metric**, with stability/confidence tests | **Use visual feedback to end/correct retreat**, with a working selectable V3 timed-reverse bypass | Enforce reverse limits and stop priority in both V3/V4 modes; validate actuator/IR/range fault behaviour |
+| **V1 — Single-bay approach (hardware bring-up verified; docking metrics pending)** | OV7670 acquisition and aligned RGB565 pixel stream | Fixed red-colour mask | Frame-based red centroid and validity | Acquire → approach → dock; centroid steering and 250 mm target stop | Sonar validity, latched IR stop, final motor gating and 10 ms UART |
+| **V2 — Robust docking (RTL Monday 26 Oct, 11:00)** | Validate stream timing; handle malformed/missing frames without corrupting downstream results | **Own streaming filter** (e.g. 3×3 noise suppression or pixel-neighbour consensus) and tuned colour mask while preserving coordinate/valid alignment | Target area/shape/confidence gate and distractor rejection; consume Wilson's output | Bounded steering, deadband/speed scheduling and alignment-aware approach | Range deglitch/filter or confidence and stale-measurement handling; repeat stop-latency/fault tests |
+| **V3 — Repeated multi-bay docking (RTL Tuesday 27 Oct, 18:00)** | Camera reliability during movement, frame dropout recovery | Stable red/feature segmentation as distance/exposure changes; prevent filter startup artefacts | Multi-frame confirmation, stale-track invalidation, next-target reacquisition | **Dock → bounded timed reverse → reacquire → dock**; own bay-selection/LED-event sequencing FSM (manual-light fallback if external controller unavailable) | Safe bounded reverse supervision, IR stop in every state, optional LED peripheral signalling |
+| **V4 — Visibility-aware repositioning (HD candidate; RTL Wednesday 28 Oct, 23:59)** | Stable reference-frame acquisition and streaming interface under retreat | **Extract persistent reference-marker features** / viewing-zone cues without a frame buffer where practical | Combine features into a **quantitative viewing-quality/visibility metric**, with stability/confidence tests | **Use visual feedback to end/correct retreat**, with a working selectable V3 timed-reverse bypass | Enforce reverse limits and stop priority in both V3/V4 modes; validate actuator/IR/range fault behaviour |
 | **V5 — Dynamic bay reassignment (optional, only after V4 stability)** | Robust frame-validity across target-light changes | Handle abrupt lighting changes; preserve classification and feature validity | Detect lost/switched active target and clear obsolete observations | Controlled stop, select new bay, replan and resume only on confirmed target | Peripheral link/ACK timeout and disconnect fail-safe **if approved hardware supports it** |
 
 **V4 is an HD candidate, not a guaranteed grade.** The team must demonstrate a meaningful custom capability, genuine operating baseline/bypass, quantitative improvement and physical evidence. **V5 is optional** and must never destabilise the verified V4 design. In all reverse trials, the front-facing sonar does not provide rear obstacle coverage; use a supervised, physically cleared bounded area.
@@ -161,7 +166,7 @@ Each cell describes **new expected RTL work or maintenance of that module's inte
 
 | Rung | Baseline limitation addressed | Minimum evidence for advancement |
 |---|---|---|
-| V1 | No proven real-world autonomous docking | Live camera-derived guidance and safe 250 mm stand-off in physical trials; actual E-stop measured |
+| V1 | No proven hardware sensor-to-motion path | **Observed:** camera target and frame activity, preliminary sonar validity, elevated-wheel actuation, physical SW0 and IR stops. **Still required:** quantitative 250 mm stand-off and ground-truth docking trials |
 | V2 | RGB false positives, noisy centroids, inconsistent steering/ranging | Paired V1/V2 trials with distractors/lighting variation; detection errors and docking error recorded |
 | V3 | V2 ends after one dock and cannot reach a new target | Multiple full bay cycles; reacquisition rate/time; reverse safety/failure cases |
 | **V4** | Fixed-time reverse misses a consistent useful viewing location | **Paired V3 bypass vs V4 trials** with heading/start variation; material improvement in reacquisition/viewing-zone repeatability, all critical safety gates unchanged |
@@ -169,19 +174,33 @@ Each cell describes **new expected RTL work or maintenance of that module's inte
 
 **HD claim caution:** V4 is a *candidate* because it targets a genuine new feedback capability and supports a physical bypass comparison. A binary marker-visible flag alone is not assumed to meet the HD standard. Final grading depends on implementation sophistication, originality, measurable improvement, individual explanation and actual hardware evidence.
 
-## 6. Next-week schedule (Sydney time, current plan)
+## 6. Revised near-term schedule (Sydney time, 25 October plan)
+
+All timestamps are **AEDT (Australia/Sydney)**. **Wednesday midnight** is interpreted as **Wednesday 28 October at 23:59 AEDT** (end of Wednesday), avoiding ambiguity with the beginning of Wednesday. These are **individual RTL + unit-test completion** targets; they are **not** claims that full integration or physical verification is finished at those times.
 
 | Date / deadline | Milestone | Required deliverable | Status |
 |---|---|---|---|
-| **Sat 24 Oct, target 19:00–21:00** | V1 testing and verification | Quartus bring-up/timing, physical camera/sonar/IR/UART checks and evidence; **target, not yet complete** | Pending |
-| **Sun 25 Oct, 22:00** | **V2 RTL complete and simulated — every member** | Individual RTL + self-checking TB; changed interfaces documented; commit/PR available | Planned |
-| **Mon 26 Oct** | **V2 testing and verification** | Integrated regression, board tests, V1/V2 comparison, documented issues | Planned |
-| **Tue 27 Oct, 11:00** | **V3 RTL complete and simulated — every member** | Multi-bay/reverse/reacquisition modules and tests; branch or PR ready | Planned |
-| **Tue 27 Oct night / Wed 28 Oct** | **V3 testing and verification** | Integrated FPGA tests, multi-cycle trials, safe bounded reverse and reacquisition evidence | Planned |
-| **Wed 28 Oct, 18:00** | **V4 RTL complete and simulated — every member** | Visibility-aware feedback, V3 bypass, self-checking TB and integration-ready changes | Planned |
-| **Thu 29 Oct onward** | V4 integration, hardware evaluation and optional V5 go/no-go | Timing, paired comparison, acceptance trials; V5 only if V4 is stable | Provisional |
+| **Sun 25 Oct** | V1 hardware bring-up and safety checkpoint | Quartus compilation/timing; initial camera, sonar, IR, UGV02 movement and stop trials | **Preliminary hardware bring-up verified**; quantified docking still pending |
+| **Mon 26 Oct, 11:00** | **V2 RTL complete and unit-tested — every owner** | Synthesizable owned RTL, self-checking testbench, documented ports/latencies and branch commit; no need to finish whole-system VGA physical verification by 11:00 | **Planned** |
+| **Mon 26 Oct afternoon/evening** | **V2 integration and testing** | Camera/debug display integration, current sonar-distance visibility, V1/V2 regression and sensor-noise comparisons | **Planned** |
+| **Tue 27 Oct, 18:00** | **V3 RTL complete and unit-tested — every owner** | Bay-sequencing, timed-reverse/reacquisition paths and unit tests, safe reverse supervision; hardware integration remains separate | **Planned** |
+| **Tue 27 Oct evening – Wed 28 Oct** | **V3 integration and verification** | Multi-cycle bench and safe controlled hardware tests, timed-reverse baseline measurements, known failures | **Planned** |
+| **Wed 28 Oct, 23:59** | **V4 RTL complete and unit-tested — every owner** | Visibility-aware return logic, selectable V3 bypass, companion RTL/testbenches and agreed integration interfaces | **Planned** |
+| **Thu 29 Oct onward** | V4 integration, physical comparisons and V5 go/no-go | Quartus timing, paired V3/V4 trials, safety and acceptance metrics; V5 only if V4 is stable | **Provisional** |
 
-The **V3 testing window overlaps the V4 RTL deadline**. Owners can work on separate feature branches in parallel; merging V4 into the integrated branch remains conditional on successful V3 verification. Do not report V4 as hardware verified by its RTL deadline. If V1 hardware verification slips, prioritise safe core bring-up and record the schedule impact rather than relabelling simulation as hardware evidence.
+V3 integration and V4 RTL development overlap. Keep V3 as a known-good fallback; independently completing V4 RTL by its deadline does not authorise merging it without simulation, fitting/timing and safety regression. Physical reverse trials require a supervised, cleared corridor because forward sonar provides no rear obstacle sensing.
+
+### V2 diagnostic integration acceptance checks (cross-module)
+
+The underlying five workstreams and original functional V2 requirements **remain unchanged**. In response to V1 field observations, add a **cross-module debug/verification deliverable** without inventing a sixth RTL owner:
+
+- **M1 Luke:** provide a clearly specified OV7670-to-DE1-SoC VGA debugging route for a compatible display and converter; verify clocks, sync timing and monitor input format. Preserve capture signal timing and pixel coordinates.
+- **M2 Wilson:** preserve valid/coordinate alignment through the noise filter; expose a processed red-mask signal suitable for an overlay; compare against raw pixel data.
+- **M3 Marcus:** expose centroid, validity and (where implemented) confidence for overlays; measure left/right response and false-target detections.
+- **M4 Jason:** integrate optional diagnostic outputs without changing safety-critical drive arbitration; expose FSM state, camera freshness and `safe_motor_enable`; reproduce disarm/rearm recovery issues.
+- **M5 Advay:** expose actual `distance_mm`, range freshness/validity and the **250 mm** motion gate; simulate no-echo and stale-data stop behaviour.
+
+**V2-DIAG (integration requirement):** A debug view or equivalent trace must make it possible to separate (a) camera-frame arrival, (b) mask/centroid validity, (c) sonar measured distance, (d) control-state permission and (e) final transmitted motor command. VGA video is a proposed implementation, not yet present in V1. It must not weaken the known-good emergency-stop gating. Where screen space/time is limited, HEX displays, LEDs and SignalTap may supplement the video overlay.
 
 ### What “done” means
 
@@ -196,6 +215,8 @@ The **V3 testing window overlaps the V4 RTL deadline**. Owners can work on separ
 MTRX3700-Major-Project/
 ├── README.md                       # living specification (this file)
 ├── .gitignore
+├── hardware/                      # supplied DE1-SoC pin mapping CSV
+├── quartus/                       # integrated QPF/QSF/SDC; generated reports ignored
 ├── rtl/
 │   ├── actuation/                  # IR safety, sonar freshness, motor requests
 │   ├── image_processing/           # red_mask.sv
@@ -213,7 +234,7 @@ MTRX3700-Major-Project/
 └── build/                          # locally generated; gitignored
 ```
 
-**Important:** `vendor/*/quartus/*.qsf` are reference/example projects, not a single verified pin/timing constraint file for `major_project_top`. The integrated project's Quartus configuration must still be created and checked. Future folders such as `docs/`, `quartus/`, `scripts/`, `data/` and `golden/` should be added only when they contain real files.
+**Important:** `vendor/*/quartus/*.qsf` remain reference/example projects; the current integrated project is `quartus/major_project.qpf` with its `.qsf` and `.sdc`. Future folders such as `docs/`, `scripts/`, `data/` and `golden/` should be added only when they contain real files.
 
 ## 8. How to run V1 verification
 
@@ -254,6 +275,16 @@ verilator --binary --timing -Wno-CASEINCOMPLETE \
 
 **Recorded V1 result:** IR-stop and 250 mm docking-stop test events each produced a decoded zero-PWM UART command after 8.826 ms in that test. The bench uses controlled internal stimulus and does **not** substitute for full real-sensor end-to-end trials. Other testbenches live in `sim/unit/` and `sim/integration/`; a single repository-wide `run_all_tests.sh` has **not yet been committed**. Add a reproducible test runner and a regression summary during V2 integration.
 
+**Dedicated latest motor regression (Verilator 5.050):**
+
+| Testbench | Required auxiliary model | Recorded result |
+|---|---|---|
+| `sim/integration/motion_uart_tb.sv` | `vendor/chassis/tb/ugv02_model.sv` | 14/14 passed; 0 protocol errors |
+| `sim/integration/top_uart_safety_tb.sv` | Shared production RTL list above | 8/8 passed |
+| `sim/integration/top_uart_latency_tb.sv` | Shared production RTL list above | 4/4 passed |
+
+When compiling `motion_uart_tb`, explicitly include `vendor/chassis/tb/ugv02_model.sv` in addition to the production RTL source list. Leaving out the model produces a **testbench compilation dependency error**, not a production RTL failure.
+
 ## 9. Test plan, engineering evidence and risks
 
 | Category | Minimum checks | Suggested recorded evidence |
@@ -266,7 +297,7 @@ verilator --binary --timing -Wno-CASEINCOMPLETE \
 | FPGA implementation | Clock constraints, pin assignment, CDC, resources and Fmax/slack | Quartus reports, stable bitstream ID, hardware log |
 | Individual assessment | Each member explains substantive RTL and tests | File attribution, PR/review history, own simulation output |
 
-**Priority implementation risks:** centroid arithmetic timing closure at camera PCLK; undocumented multi-clock exceptions; camera/sonar GPIO pin mismatches; command-period versus physical stopping delay; rear hazards during reverse; unapproved external LED controller; HD originality without a measurable V3/V4 baseline. Resolve hard hardware blockers before adding visual/game complexity.
+**Priority implementation risks:** preliminary external SCCB timing constraints and PCLK non-dedicated clock routing; Quartus synchronizer attributes/MTBF not characterised; apparent asymmetric field-of-view detection; ambiguous sonar-valid versus safe-range indication; intermittent movement/state recovery; command-period versus physical stopping delay; rear hazards during reverse; unapproved external LED controller; HD originality without a measurable V3/V4 baseline. Timing currently closes for the reported constraints, but it does not validate every external-interface electrical assumption. Resolve hard hardware blockers before adding visual/game complexity.
 
 ## 10. Collaboration and revision procedure
 
@@ -287,7 +318,7 @@ verilator --binary --timing -Wno-CASEINCOMPLETE \
 
 ## 11. README revision log
 
-**Current README revision: `0.2.2` (24 October 2026).** This is a documentation revision identifier, **not** the current RTL version. V1 is the only committed implementation baseline as of this revision.
+**Current README revision: `0.3.0` (25 October 2026).** This is a documentation revision identifier, **not** the RTL version. V1 is the verified hardware bring-up source baseline; V2–V5 features remain proposed until implemented and tested.
 
 | README revision | Date | Trigger | Changes | RTL/hardware status |
 |---|---|---|---|---|
@@ -295,7 +326,7 @@ verilator --binary --timing -Wno-CASEINCOMPLETE \
 | **`0.2.0`** | **24 Oct 2026** | **V1 simulation baseline published** | Actual repository and V1 status; proposed five-workstream allocation; cumulative V1–V5 matrix; revised 25–28 Oct schedule; verification definitions and README revision policy | **V1 simulated**, hardware/Quartus not yet verified |
 | **`0.2.1`** | **24 Oct 2026** | Team ownership clarification | Named Wilson as fifth team member and proposed M5 owner; exact V2 interfaces remain subject to team agreement | V1 simulation baseline unchanged |
 | **`0.2.2`** | **24 Oct 2026** | Corrected five-person split | Luke camera, Wilson image processing, Marcus perception, Jason navigation/bay sequencing, Advay actuation/safety; replaced V1–V5 workstream matrix and hand-offs | V1 simulated RTL unchanged |
-| `0.3.0` *(reserved)* | After V1 hardware review | Hardware feedback | Confirm pin map, clock timing, actual limitations, changes to V2 scope and ownership | Pending |
+| **`0.3.0`** | **25 Oct 2026** | **V1 physical bring-up checkpoint and replanning** | Recorded Quartus timing and pin constraints, live camera and sonar diagnostics, elevated UGV02 movement and physical SW0/IR stop tests; 26/26 dedicated UART tests; added V2-DIAG without changing five-owner scope; moved V2 RTL to Mon 26 Oct 11:00, V3 to Tue 27 Oct 18:00 and V4 to Wed 28 Oct 23:59 | **V1 sensor/actuation bring-up provisionally verified; quantitative autonomous docking pending** |
 | `0.4.0` *(reserved)* | After V2 verification | V2 test review | Record results, actual V2 feature set and V3 changes | Pending |
 | `0.5.0` *(reserved)* | After V3 verification | V3 test review | Record repeated-docking evidence, V4 algorithm/bypass changes | Pending |
 | `0.6.0` *(reserved)* | After V4 verification | V4 test review | Record HD-candidate comparison, accept/reject V5 extension | Pending |
